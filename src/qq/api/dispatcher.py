@@ -127,9 +127,10 @@ class ActionDispatcher:
             token_manager=ctx.token_manager,
             target_id=ctx.params[id_key],
             is_c2c=is_c2c,
-            file_type=ctx.params["file_type"],
+            file_type=ctx.params.get("file_type"),
             url=ctx.params.get("url"),
             file_data=ctx.params.get("file_data"),
+            upload_id=ctx.params.get("upload_id"),
             srv_send_msg=bool(ctx.params.get("srv_send_msg", False)),
         )
 
@@ -146,6 +147,7 @@ class ActionDispatcher:
             file_size=int(ctx.params["file_size"]),
             md5_hex=ctx.params["md5_hex"],
             sha1_hex=ctx.params["sha1_hex"],
+            md5_10m_hex=ctx.params.get("md5_10m_hex"),
         )
 
     async def _put_upload_part(self, ctx: ActionContext) -> str:
@@ -157,13 +159,15 @@ class ActionDispatcher:
     async def _upload_finish(
         self, ctx: ActionContext, *, is_c2c: bool, id_key: str
     ) -> Any:
-        return await self._media.upload_finish(
+        return await self._media.upload_part_finish(
             bot_config=ctx.bot_config,
             token_manager=ctx.token_manager,
             target_id=ctx.params[id_key],
             is_c2c=is_c2c,
             upload_id=ctx.params["upload_id"],
-            part_md5s=list(ctx.params["part_md5s"]),
+            part_index=int(ctx.params["part_index"]),
+            block_size=int(ctx.params["block_size"]),
+            md5_hex=ctx.params["md5_hex"],
         )
 
     async def _download_attachment(self, ctx: ActionContext) -> bytes:

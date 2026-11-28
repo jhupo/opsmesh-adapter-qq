@@ -3,6 +3,7 @@
 from typing_extensions import override
 
 from .base import NoticeEvent
+from .models import VerifyInfo
 
 
 class GroupNoticeEvent(NoticeEvent):
@@ -24,8 +25,8 @@ class GroupJoinRequestEvent(GroupNoticeEvent):
     username: str = ""
     apply_source: str = ""
     invited_by: str | None = None
-    verify_info: str = ""
-    risk_tips: str = ""
+    verify_info: VerifyInfo | str | None = None
+    risk_tips: str | None = None
     auto_approved: bool = False
 
     @override

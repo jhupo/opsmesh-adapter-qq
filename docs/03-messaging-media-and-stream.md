@@ -50,7 +50,7 @@ flowchart TD
 
 QQ 群聊与单聊发送图片（`1`）、视频（`2`）、语音 Silk（`3`）、文件（`4`）必须先换取 `file_info`：
 - 小文件或公网 URL：直接调 `POST /v2/groups/{group_openid}/files`；
-- 大文件本地字节流：走官方 **BDH 分片上传三步曲**（`prepare` 拿预签名分片 URL -> 并发 `PUT` 分片并计算 MD5 -> `part_finish` 合并换取 `file_info`，遇 `40093001` BDH 瞬态码自动重试一次）。
+- 大文件本地字节流：走官方 **BDH 分片上传四步曲**（`upload_prepare` 拿预签名分片 URL -> 并发 `PUT` 分片并计算 MD5 -> 逐片调用 `upload_part_finish` 确认（遇 `40093001` BDH 瞬态码自动重试）-> `POST /files` 传 `upload_id` 完成合并换取 `file_info`）。
 
 ```mermaid
 sequenceDiagram
@@ -68,14 +68,16 @@ sequenceDiagram
         MED->>API: POST /v2/groups/{group_openid}/files {file_type: 4, file_data / url, srv_send_msg: false}
         API-->>MED: {file_uuid, file_info, ttl}
     else 大文件 (BDH 分片直传)
-        MED->>MED: 流式计算整文件 MD5 与 SHA1 及总字节数
-        MED->>API: POST /v2/groups/{group_openid}/files/prepare {file_type: 4, file_name, file_size, md5, sha1}
+        MED->>MED: 计算整文件 MD5、SHA1、前 10MB MD5 (md5_10m) 及总字节数
+        MED->>API: POST /v2/groups/{group_openid}/upload_prepare {file_type: 4, file_name, file_size, md5, sha1, md5_10m}
         API-->>MED: {upload_id, block_size, parts: [{index, presigned_url}, ...], upload_config}
-        loop 按 concurrency 并发上传各分片
+        loop 按 concurrency 并发上传并确认各分片
             MED->>COS: PUT presigned_url (分片字节流)
             COS-->>MED: 200 OK
+            MED->>API: POST /v2/groups/{group_openid}/upload_part_finish {upload_id, part_index, block_size, md5}
+            API-->>MED: {}
         end
-        MED->>API: POST /v2/groups/{group_openid}/files/part_finish {upload_id, part_md5s}
+        MED->>API: POST /v2/groups/{group_openid}/files {upload_id, srv_send_msg: false}
         API-->>MED: {file_uuid, file_info, ttl}
     end
 

@@ -38,28 +38,33 @@ class MediaService:
         token_manager: TokenManager,
         target_id: str,
         is_c2c: bool,
-        file_type: MediaFileType | int,
+        file_type: MediaFileType | int | None = None,
         url: str | None = None,
         file_data: bytes | str | None = None,
+        upload_id: str | None = None,
         srv_send_msg: bool = False,
     ) -> PostFilesReturn:
-        """Single-step media upload via /files returning file_info."""
+        """Single-step media upload or BDH finalization via /files."""
         prefix = "users" if is_c2c else "groups"
         safe_id = validate_qq_identifier(target_id, "target_id")
-        body: T_JsonDict = {
-            "file_type": int(file_type),
-            "srv_send_msg": srv_send_msg,
-        }
-        if url is not None:
-            body["url"] = url
-        elif file_data is not None:
-            body["file_data"] = (
-                base64.b64encode(file_data).decode("ascii")
-                if isinstance(file_data, (bytes, bytearray))
-                else file_data
-            )
+        if upload_id is not None:
+            body: T_JsonDict = {"upload_id": upload_id, "srv_send_msg": srv_send_msg}
+        elif file_type is None:
+            raise MediaError("file_type is required when upload_id is not provided.")
         else:
-            raise MediaError("Either url or file_data must be provided.")
+            body = {"file_type": int(file_type), "srv_send_msg": srv_send_msg}
+            if url is not None:
+                body["url"] = url
+            elif file_data is not None:
+                body["file_data"] = (
+                    base64.b64encode(file_data).decode("ascii")
+                    if isinstance(file_data, (bytes, bytearray))
+                    else file_data
+                )
+            else:
+                raise MediaError(
+                    "Either url, file_data, or upload_id must be provided."
+                )
 
         data = await self._client.request_json(
             "POST",
@@ -82,13 +87,14 @@ class MediaService:
         file_size: int,
         md5_hex: str,
         sha1_hex: str,
+        md5_10m_hex: str | None = None,
     ) -> UploadPrepareReturn:
-        """Step 1 of BDH chunked upload: request presigned part URLs."""
+        """Step 1 of BDH chunked upload: POST /upload_prepare."""
         prefix = "users" if is_c2c else "groups"
         safe_id = validate_qq_identifier(target_id, "target_id")
         data = await self._client.request_json(
             "POST",
-            f"/v2/{prefix}/{safe_id}/files/prepare",
+            f"/v2/{prefix}/{safe_id}/upload_prepare",
             bot_config=bot_config,
             token_manager=token_manager,
             json_body={
@@ -97,6 +103,7 @@ class MediaService:
                 "file_size": file_size,
                 "md5": md5_hex,
                 "sha1": sha1_hex,
+                "md5_10m": md5_10m_hex or md5_hex,
             },
         )
         return UploadPrepareReturn.model_validate(data or {})
@@ -115,7 +122,7 @@ class MediaService:
             raise MediaError(f"BDH part PUT failed with HTTP {resp.status_code}")
         return hashlib.md5(chunk, usedforsecurity=False).hexdigest()
 
-    async def upload_finish(
+    async def upload_part_finish(
         self,
         *,
         bot_config: BotConfig,
@@ -123,19 +130,25 @@ class MediaService:
         target_id: str,
         is_c2c: bool,
         upload_id: str,
-        part_md5s: list[str],
-    ) -> PostFilesReturn:
-        """Step 3 of BDH chunked upload: finalize parts and retrieve file_info."""
+        part_index: int,
+        block_size: int,
+        md5_hex: str,
+    ) -> None:
+        """Step 3 of BDH chunked upload: POST /upload_part_finish for one part."""
         prefix = "users" if is_c2c else "groups"
         safe_id = validate_qq_identifier(target_id, "target_id")
-        data = await self._client.request_json(
+        await self._client.request_json(
             "POST",
-            f"/v2/{prefix}/{safe_id}/files/part_finish",
+            f"/v2/{prefix}/{safe_id}/upload_part_finish",
             bot_config=bot_config,
             token_manager=token_manager,
-            json_body={"upload_id": upload_id, "part_md5s": part_md5s},
+            json_body={
+                "upload_id": upload_id,
+                "part_index": part_index,
+                "block_size": block_size,
+                "md5": md5_hex,
+            },
         )
-        return PostFilesReturn.model_validate(data or {})
 
     async def upload_bytes_or_path(
         self,
@@ -192,58 +205,64 @@ class MediaService:
     ) -> PostFilesReturn:
         md5_hex = hashlib.md5(data_bytes, usedforsecurity=False).hexdigest()
         sha1_hex = hashlib.sha1(data_bytes, usedforsecurity=False).hexdigest()
+        md5_10m_hex = hashlib.md5(
+            data_bytes[: 10 * 1024 * 1024], usedforsecurity=False
+        ).hexdigest()
 
-        for attempt in range(2):
-            try:
-                prep = await self.upload_prepare(
-                    bot_config=bot_config,
-                    token_manager=token_manager,
-                    target_id=target_id,
-                    is_c2c=is_c2c,
-                    file_type=file_type,
-                    file_name=filename,
-                    file_size=len(data_bytes),
-                    md5_hex=md5_hex,
-                    sha1_hex=sha1_hex,
-                )
-                block = max(prep.block_size, 1)
-                part_results: dict[int, str] = {}
-                sem = anyio.Semaphore(self._config.qq_bdh_concurrency)
+        prep = await self.upload_prepare(
+            bot_config=bot_config,
+            token_manager=token_manager,
+            target_id=target_id,
+            is_c2c=is_c2c,
+            file_type=file_type,
+            file_name=filename,
+            file_size=len(data_bytes),
+            md5_hex=md5_hex,
+            sha1_hex=sha1_hex,
+            md5_10m_hex=md5_10m_hex,
+        )
+        block = max(prep.block_size, 1)
+        concurrency = (
+            max(min(prep.upload_config.concurrency, 16), 1)
+            if prep.upload_config
+            else self._config.qq_bdh_concurrency
+        )
+        sem = anyio.Semaphore(concurrency)
 
-                async def _send_part(
-                    idx: int,
-                    url: str,
-                    *,
-                    _block: int = block,
-                    _sem: anyio.Semaphore = sem,
-                    _results: dict[int, str] = part_results,
-                ) -> None:
-                    start = idx * _block
-                    chunk = data_bytes[start : start + _block]
-                    async with _sem:
-                        _results[idx] = await self.put_upload_part(
-                            presigned_url=url, chunk=chunk
+        async def _send_part(seq_idx: int, part_index: int, url: str) -> None:
+            chunk = data_bytes[seq_idx * block : (seq_idx + 1) * block]
+            async with sem:
+                part_md5 = await self.put_upload_part(presigned_url=url, chunk=chunk)
+                for attempt in range(3):
+                    try:
+                        await self.upload_part_finish(
+                            bot_config=bot_config,
+                            token_manager=token_manager,
+                            target_id=target_id,
+                            is_c2c=is_c2c,
+                            upload_id=prep.upload_id,
+                            part_index=part_index,
+                            block_size=len(chunk),
+                            md5_hex=part_md5,
                         )
+                        return
+                    except QQActionFailed as exc:
+                        if exc.code != _BDH_TRANSIENT_CODE or attempt == 2:
+                            raise
+                        await anyio.sleep(0.2)
 
-                async with anyio.create_task_group() as tg:
-                    for part in prep.parts:
-                        tg.start_soon(_send_part, part.index, part.presigned_url)
+        async with anyio.create_task_group() as tg:
+            for seq_idx, part in enumerate(prep.parts):
+                tg.start_soon(_send_part, seq_idx, part.index, part.presigned_url)
 
-                ordered_md5s = [part_results[p.index] for p in prep.parts]
-                return await self.upload_finish(
-                    bot_config=bot_config,
-                    token_manager=token_manager,
-                    target_id=target_id,
-                    is_c2c=is_c2c,
-                    upload_id=prep.upload_id,
-                    part_md5s=ordered_md5s,
-                )
-            except QQActionFailed as exc:
-                if exc.code == _BDH_TRANSIENT_CODE and attempt == 0:
-                    continue
-                raise
-
-        raise MediaError("BDH upload failed after retry.")  # pragma: no cover
+        return await self.post_files(
+            bot_config=bot_config,
+            token_manager=token_manager,
+            target_id=target_id,
+            is_c2c=is_c2c,
+            upload_id=prep.upload_id,
+            srv_send_msg=False,
+        )
 
     async def download_attachment(
         self,

@@ -1,6 +1,5 @@
 """Complete QQ Official Group Admin v2 APIs (all 11 group-admin endpoints)."""
 
-from datetime import datetime, timedelta
 from typing import Literal
 
 from qq.config import BotConfig
@@ -18,7 +17,7 @@ from qq.event.models import (
     SetMemberMuteState,
 )
 from qq.typing import T_JsonDict
-from qq.utils import format_iso8601_utc, validate_qq_identifier
+from qq.utils import validate_qq_identifier
 
 from .client import ApiClient
 from .token import TokenManager
@@ -40,7 +39,7 @@ class GroupAdminService:
         gid = validate_qq_identifier(group_openid, "group_openid")
         data = await self._client.request_json(
             "GET",
-            f"/v2/groups/{gid}",
+            f"/v2/groups/{gid}/info",
             bot_config=bot_config,
             token_manager=token_manager,
         )
@@ -56,7 +55,7 @@ class GroupAdminService:
         gid = validate_qq_identifier(group_openid, "group_openid")
         data = await self._client.request_json(
             "GET",
-            f"/v2/groups/{gid}/bot",
+            f"/v2/groups/{gid}/bot_state",
             bot_config=bot_config,
             token_manager=token_manager,
         )
@@ -157,13 +156,8 @@ class GroupAdminService:
         for item in members:
             mid = validate_qq_identifier(item.member_openid, "member_openid")
             entry: T_JsonDict = {"member_openid": mid, "op": item.op}
-            if item.mute_end_timestamp is not None:
-                if isinstance(item.mute_end_timestamp, (datetime, timedelta)):
-                    entry["mute_end_timestamp"] = format_iso8601_utc(
-                        item.mute_end_timestamp
-                    )
-                else:
-                    entry["mute_end_timestamp"] = item.mute_end_timestamp
+            if item.mute_expire_at is not None:
+                entry["mute_expire_at"] = item.mute_expire_at
             serialized.append(entry)
 
         await self._client.request_json(

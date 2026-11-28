@@ -2,160 +2,83 @@
 
 from importlib.metadata import PackageNotFoundError, version
 
-from .adapter import Adapter
-from .api import MessageStream
-from .config import BotConfig, Config, IntentConfig
-from .event import (
-    AtMessageCreateEvent,
-    BatchRemoveMembersReturn,
-    C2CMessageCreateEvent,
-    C2CMsgReceiveEvent,
-    C2CMsgRejectEvent,
-    DirectMessageCreateEvent,
-    FriendAddEvent,
-    FriendDelEvent,
-    GroupAddRobotEvent,
-    GroupAtMessageCreateEvent,
-    GroupBotStateReturn,
-    GroupDelRobotEvent,
-    GroupInfoReturn,
-    GroupJoinRequestEvent,
-    GroupMemberAddEvent,
-    GroupMemberBlacklistReturn,
-    GroupMemberInfo,
-    GroupMemberRemoveEvent,
-    GroupMembersReturn,
-    GroupMessageCreateEvent,
-    GroupMessageEvent,
-    GroupMsgReceiveEvent,
-    GroupMsgRejectEvent,
-    GroupNoticeEvent,
-    GroupRestrictChatSettingReturn,
-    GuildMessageEvent,
-    GuildNoticeEvent,
-    InteractionCreateEvent,
-    JoinRequestItem,
-    JoinRequestListReturn,
-    MemberBlacklistOpReturn,
-    MessageCreateEvent,
-    MessageEvent,
-    MetaEvent,
-    NoticeEvent,
-    PostC2CMessagesReturn,
-    PostFilesReturn,
-    PostGroupMembersReturn,
-    PostGroupMessagesReturn,
-    QQEvent,
-    ReadyEvent,
-    ResumedEvent,
-    SetMemberMuteState,
-    User,
-    parse_event,
-)
-from .exception import (
-    AuditException,
-    MediaError,
-    MediaLimitExceeded,
-    QQActionFailed,
-    QQAdapterException,
-    QQNetworkError,
-    RateLimitException,
-    TokenError,
-    UnauthorizedException,
-    WebhookVerificationError,
-)
-from .gateway import Gateway
-from .message import Message, MessageSegment
-from .permission import GROUP_ADMIN, GROUP_OWNER, GUILD_ADMIN, GUILD_OWNER
-from .typing import (
-    ADAPTER_NAME,
-    Intents,
-    MediaFileType,
-    OpCode,
-    QQAction,
-    QQMsgType,
-    StreamState,
-)
-
 try:
     __version__: str | None = version("opsmesh-adapter-qq")
 except PackageNotFoundError:  # pragma: no cover
     __version__ = "0.1.0"
 
-__all__ = [
-    "ADAPTER_NAME",
-    "GROUP_ADMIN",
-    "GROUP_OWNER",
-    "GUILD_ADMIN",
-    "GUILD_OWNER",
-    "Adapter",
-    "AtMessageCreateEvent",
-    "AuditException",
-    "BatchRemoveMembersReturn",
-    "BotConfig",
-    "C2CMessageCreateEvent",
-    "C2CMsgReceiveEvent",
-    "C2CMsgRejectEvent",
-    "Config",
-    "DirectMessageCreateEvent",
-    "FriendAddEvent",
-    "FriendDelEvent",
-    "Gateway",
-    "GroupAddRobotEvent",
-    "GroupAtMessageCreateEvent",
-    "GroupBotStateReturn",
-    "GroupDelRobotEvent",
-    "GroupInfoReturn",
-    "GroupJoinRequestEvent",
-    "GroupMemberAddEvent",
-    "GroupMemberBlacklistReturn",
-    "GroupMemberInfo",
-    "GroupMemberRemoveEvent",
-    "GroupMembersReturn",
-    "GroupMessageCreateEvent",
-    "GroupMessageEvent",
-    "GroupMsgReceiveEvent",
-    "GroupMsgRejectEvent",
-    "GroupNoticeEvent",
-    "GroupRestrictChatSettingReturn",
-    "GuildMessageEvent",
-    "GuildNoticeEvent",
-    "IntentConfig",
-    "Intents",
-    "InteractionCreateEvent",
-    "JoinRequestItem",
-    "JoinRequestListReturn",
-    "MediaError",
-    "MediaFileType",
-    "MediaLimitExceeded",
-    "MemberBlacklistOpReturn",
-    "Message",
-    "MessageCreateEvent",
-    "MessageEvent",
-    "MessageSegment",
-    "MessageStream",
-    "MetaEvent",
-    "NoticeEvent",
-    "OpCode",
-    "PostC2CMessagesReturn",
-    "PostFilesReturn",
-    "PostGroupMembersReturn",
-    "PostGroupMessagesReturn",
-    "QQAction",
-    "QQActionFailed",
-    "QQAdapterException",
-    "QQEvent",
-    "QQMsgType",
-    "QQNetworkError",
-    "RateLimitException",
-    "ReadyEvent",
-    "ResumedEvent",
-    "SetMemberMuteState",
-    "StreamState",
-    "TokenError",
-    "UnauthorizedException",
-    "User",
-    "WebhookVerificationError",
-    "__version__",
-    "parse_event",
-]
+
+from .adapter import Adapter as Adapter
+from .api import MessageStream as MessageStream
+from .config import BotConfig as BotConfig
+from .config import Config as Config
+from .config import IntentConfig as IntentConfig
+from .event import AtMessageCreateEvent as AtMessageCreateEvent
+from .event import BatchRemoveMembersReturn as BatchRemoveMembersReturn
+from .event import C2CMessageCreateEvent as C2CMessageCreateEvent
+from .event import C2CMsgReceiveEvent as C2CMsgReceiveEvent
+from .event import C2CMsgRejectEvent as C2CMsgRejectEvent
+from .event import DirectMessageCreateEvent as DirectMessageCreateEvent
+from .event import FriendAddEvent as FriendAddEvent
+from .event import FriendDelEvent as FriendDelEvent
+from .event import GroupAddRobotEvent as GroupAddRobotEvent
+from .event import GroupAtMessageCreateEvent as GroupAtMessageCreateEvent
+from .event import GroupBotStateReturn as GroupBotStateReturn
+from .event import GroupDelRobotEvent as GroupDelRobotEvent
+from .event import GroupInfoReturn as GroupInfoReturn
+from .event import GroupJoinRequestEvent as GroupJoinRequestEvent
+from .event import GroupMemberAddEvent as GroupMemberAddEvent
+from .event import GroupMemberBlacklistReturn as GroupMemberBlacklistReturn
+from .event import GroupMemberInfo as GroupMemberInfo
+from .event import GroupMemberRemoveEvent as GroupMemberRemoveEvent
+from .event import GroupMembersReturn as GroupMembersReturn
+from .event import GroupMessageCreateEvent as GroupMessageCreateEvent
+from .event import GroupMessageEvent as GroupMessageEvent
+from .event import GroupMsgReceiveEvent as GroupMsgReceiveEvent
+from .event import GroupMsgRejectEvent as GroupMsgRejectEvent
+from .event import GroupNoticeEvent as GroupNoticeEvent
+from .event import GroupRestrictChatSettingReturn as GroupRestrictChatSettingReturn
+from .event import GuildMessageEvent as GuildMessageEvent
+from .event import GuildNoticeEvent as GuildNoticeEvent
+from .event import InteractionCreateEvent as InteractionCreateEvent
+from .event import JoinRequestItem as JoinRequestItem
+from .event import JoinRequestListReturn as JoinRequestListReturn
+from .event import MemberBlacklistOpReturn as MemberBlacklistOpReturn
+from .event import MessageCreateEvent as MessageCreateEvent
+from .event import MessageEvent as MessageEvent
+from .event import MetaEvent as MetaEvent
+from .event import NoticeEvent as NoticeEvent
+from .event import PostC2CMessagesReturn as PostC2CMessagesReturn
+from .event import PostFilesReturn as PostFilesReturn
+from .event import PostGroupMembersReturn as PostGroupMembersReturn
+from .event import PostGroupMessagesReturn as PostGroupMessagesReturn
+from .event import QQEvent as QQEvent
+from .event import ReadyEvent as ReadyEvent
+from .event import ResumedEvent as ResumedEvent
+from .event import SetMemberMuteState as SetMemberMuteState
+from .event import User as User
+from .event import parse_event as parse_event
+from .exception import AuditException as AuditException
+from .exception import MediaError as MediaError
+from .exception import MediaLimitExceeded as MediaLimitExceeded
+from .exception import QQActionFailed as QQActionFailed
+from .exception import QQAdapterException as QQAdapterException
+from .exception import QQNetworkError as QQNetworkError
+from .exception import RateLimitException as RateLimitException
+from .exception import TokenError as TokenError
+from .exception import UnauthorizedException as UnauthorizedException
+from .exception import WebhookVerificationError as WebhookVerificationError
+from .gateway import Gateway as Gateway
+from .message import Message as Message
+from .message import MessageSegment as MessageSegment
+from .permission import GROUP_ADMIN as GROUP_ADMIN
+from .permission import GROUP_OWNER as GROUP_OWNER
+from .permission import GUILD_ADMIN as GUILD_ADMIN
+from .permission import GUILD_OWNER as GUILD_OWNER
+from .typing import ADAPTER_NAME as ADAPTER_NAME
+from .typing import Intents as Intents
+from .typing import MediaFileType as MediaFileType
+from .typing import OpCode as OpCode
+from .typing import QQAction as QQAction
+from .typing import QQMsgType as QQMsgType
+from .typing import StreamState as StreamState
